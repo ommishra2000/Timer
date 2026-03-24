@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pomodoro Aesthetic | Custom Timers</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 30% 10%, #0a0f1a, #030507);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Poppins', 'Segoe UI', 'Orbitron', monospace;
+            padding: 1rem;
+        }
+
+        /* main glassmorphic card */
+        .timer-container {
+            background: rgba(10, 20, 28, 0.55);
+            backdrop-filter: blur(14px);
+            border-radius: 4rem;
+            border: 1px solid rgba(88, 130, 193, 0.25);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(120, 180, 255, 0.1) inset;
+            padding: 2rem 2rem 2.5rem;
+            width: 100%;
+            max-width: 750px;
+            transition: all 0.3s ease;
+        }
+
+        /* mode selector */
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            padding: 0.6rem 1.6rem;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            letter-spacing: 1px;
+            color: #ccddee;
+            border-radius: 3rem;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #2b6e9e, #1b4d6e);
+            color: white;
+            box-shadow: 0 8px 20px rgba(0,160,255,0.3);
+            border-color: rgba(100,200,255,0.6);
+            text-shadow: 0 0 5px rgba(0,255,255,0.5);
+        }
+
+        .mode-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* digital clock letters */
+        .digital-clock {
+            text-align: center;
+            margin: 1rem 0 0.5rem;
+        }
+
+        #timerDisplay {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            font-size: 5.2rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            background: linear-gradient(135deg, #eef5ff, #b9e2ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 8px rgba(0, 180, 255, 0.7), 0 0 20px rgba(0, 100, 200, 0.5);
+            word-break: break-word;
+        }
+
+        .session-label {
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            font-weight: 300;
+            color: #9bbad0;
+            text-transform: uppercase;
+            font-family: monospace;
+        }
+
+        /* custom time controls - new feature */
+        .custom-time-controls {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.2rem 0 0.8rem;
+            flex-wrap: wrap;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 0.8rem 1.2rem;
+            border-radius: 3rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .time-adjust {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.3rem 1rem;
+            border-radius: 2.5rem;
+            border: 1px solid rgba(100, 170, 220, 0.4);
+        }
+
+        .time-adjust label {
+            color: #b8d4fc;
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+
+        .time-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #aaf0ff;
+            min-width: 55px;
+            text-align: center;
+            text-shadow: 0 0 3px cyan;
+        }
+
+        .adj-btn {
+            background: rgba(20, 50, 70, 0.8);
+            border: none;
+            color: #c4e6ff;
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 5px rgba(0,200,255,0.3);
+        }
+
+        .adj-btn:hover {
+            background: #2a6f8f;
+            transform: scale(1.05);
+            color: white;
+        }
+
+        .adj-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* control buttons */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1.8rem;
+            margin: 1.5rem 0 1.2rem;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(90, 160, 220, 0.6);
+            font-size: 1.3rem;
+            padding: 0.7rem 1.4rem;
+            border-radius: 3rem;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: 0.2s;
+            color: #c3e2fc;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: monospace;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(30, 100, 150, 0.5);
+            transform: scale(1.02);
+            border-color: #6fcbff;
+            box-shadow: 0 0 12px rgba(0,200,255,0.3);
+        }
+
+        /* progress ring */
+        .progress-ring-wrap {
+            display: flex;
+            justify-content: center;
+            margin: 0.5rem 0 1rem;
+        }
+
+        .ring-bg {
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            background: conic-gradient(#3cc5ff 0deg, #1f3e4a 0deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0,210,255,0.3);
+        }
+
+        .ring-inner {
+            width: 73px;
+            height: 73px;
+            background: #07161f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #bbf0ff;
+            font-family: monospace;
+        }
+
+        /* sound section */
+        .sound-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+            background: rgba(0,0,0,0.3);
+            padding: 0.8rem 1.2rem;
+            border-radius: 2rem;
+        }
+
+        .sound-picker, .vol-control {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            background: rgba(0,0,0,0.4);
+            padding: 0.3rem 1rem;
+            border-radius: 2rem;
+        }
+
+        .sound-picker label, .vol-control label {
+            color: #bad4f0;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        select, .vol-slider {
+            background: #0b1a24;
+            border: 1px solid #3a7799;
+            color: #e0f0ff;
+            padding: 0.3rem 0.6rem;
+            border-radius: 1.5rem;
+            font-family: monospace;
+            cursor: pointer;
+        }
+
+        .test-alarm {
+            background: none;
+            border: 1px solid #6f9fcf;
+            color: #b4d6ff;
+            padding: 0.3rem 1rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .test-alarm:hover {
+            background: #1e4a6e;
+            color: white;
+        }
+
+        .cycle-counter {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #88aac9;
+            font-family: monospace;
+        }
+
+        .reset-durations-btn {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #5f8aaf;
+            color: #bfdefa;
+            padding: 0.2rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-left: 0.5rem;
+            transition: 0.2s;
+        }
+
+        .reset-durations-btn:hover {
+            background: #2c5779;
+        }
+
+        @media (max-width: 600px) {
+            .timer-container {
+                padding: 1.2rem;
+            }
+            #timerDisplay {
+                font-size: 3.2rem;
+                letter-spacing: 3px;
+            }
+            .custom-time-controls {
+                gap: 0.8rem;
+            }
+            .time-adjust {
+                padding: 0.2rem 0.6rem;
+            }
+            .time-value {
+                font-size: 1rem;
+                min-width: 45px;
+            }
+            .adj-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="timer-container">
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+        <button class="mode-btn active" data-mode="pomodoro">🍅 FOCUS</button>
+        <button class="mode-btn" data-mode="shortBreak">☕ SHORT BREAK</button>
+        <button class="mode-btn" data-mode="longBreak">🌿 LONG BREAK</button>
+    </div>
+
+    <!-- Digital clock display -->
+    <div class="digital-clock">
+        <div id="timerDisplay">25:00</div>
+    </div>
+    <div class="session-label" id="sessionMessage">Time to focus · deep work</div>
+
+    <!-- CUSTOM DURATION CONTROLS (NEW) -->
+    <div class="custom-time-controls">
+        <div class="time-adjust" id="focusTimeControl">
+            <label>🍅 FOCUS</label>
+            <button class="adj-btn" id="decFocus">-</button>
+            <span class="time-value" id="focusMinutes">25</span>
+            <button class="adj-btn" id="incFocus">+</button>
+            <span style="font-size:0.8rem;">min</span>
+        </div>
+        <div class="time-adjust" id="shortBreakControl">
+            <label>☕ SHORT</label>
+            <button class="adj-btn" id="decShort">-</button>
+            <span class="time-value" id="shortMinutes">5</span>
+            <button class="adj-btn" id="incShort">+</button>
+            <span style="font-size:0.8rem;">min</span>
+        </div>
+        <div class="time-adjust" id="longBreakControl">
+            <label>🌿 LONG</label>
+            <button class="adj-btn" id="decLong">-</button>
+            <span class="time-value" id="longMinutes">15</span>
+            <button class="adj-btn" id="incLong">+</button>
+            <span style="font-size:0.8rem;">min</span>
+        </div>
+        <button class="reset-durations-btn" id="resetDurationsBtn">⟳ Reset Defaults</button>
+    </div>
+
+    <!-- progress ring -->
+    <div class="progress-ring-wrap">
+        <div class="ring-bg" id="progressRing">
+            <div class="ring-inner" id="ringPercent">100%</div>
+        </div>
+    </div>
+
+    <!-- control buttons -->
+    <div class="controls">
+        <button class="ctrl-btn" id="startPauseBtn">▶ START</button>
+        <button class="ctrl-btn" id="resetBtn">⟳ RESET</button>
+    </div>
+
+    <!-- Sound customization -->
+    <div class="sound-section">
+        <div class="sound-picker">
+            <label>🔊 ALARM SOUND</label>
+            <select id="alarmSoundSelect">
+                <option value="bell">✨ Soft Bell</option>
+                <option value="zen">🎐 Zen Chime</option>
+                <option value="digital">📢 Digital Pulse</option>
+                <option value="nature">🍃 Nature Breeze</option>
+            </select>
+        </div>
+        <div class="vol-control">
+            <label>🔉 VOLUME</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="65" class="vol-slider" style="width: 100px;">
+            <button id="testAlarmBtn" class="test-alarm">🔔 TEST</button>
+        </div>
+    </div>
+    <div class="cycle-counter" id="cycleInfo">🍅 Pomodoros completed: 0</div>
+</div>
+
+<script>
+    // ---------- CUSTOM DURATION STORAGE ----------
+    let customDurations = {
+        pomodoro: 25,      // minutes
+        shortBreak: 5,
+        longBreak: 15
+    };
+    
+    // Current active mode & timer state
+    let currentSeconds = 25 * 60;
+    let timerInterval = null;
+    let isRunning = false;
+    let activeMode = "pomodoro";
+    
+    // pomodoro counter
+    let pomodoroCount = 0;
+    
+    // DOM elements
+    const timerDisplayEl = document.getElementById("timerDisplay");
+    const startPauseBtn = document.getElementById("startPauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const modeBtns = document.querySelectorAll(".mode-btn");
+    const sessionMessageEl = document.getElementById("sessionMessage");
+    const ringPercentSpan = document.getElementById("ringPercent");
+    const progressRingDiv = document.getElementById("progressRing");
+    const cycleInfoSpan = document.getElementById("cycleInfo");
+    
+    // Duration display spans
+    const focusMinutesSpan = document.getElementById("focusMinutes");
+    const shortMinutesSpan = document.getElementById("shortMinutes");
+    const longMinutesSpan = document.getElementById("longMinutes");
+    
+    // Sound variables
+    let alarmAudio = null;
+    let currentAlarmType = "bell";
+    let currentVolume = 0.65;
+    
+    // Helper: update the display of custom minutes in UI
+    function updateCustomUI() {
+        focusMinutesSpan.innerText = customDurations.pomodoro;
+        shortMinutesSpan.innerText = customDurations.shortBreak;
+        longMinutesSpan.innerText = customDurations.longBreak;
+    }
+    
+    // Get total seconds for a given mode based on custom durations
+    function getDurationSeconds(mode) {
+        switch(mode) {
+            case "pomodoro": return customDurations.pomodoro * 60;
+            case "shortBreak": return customDurations.shortBreak * 60;
+            case "longBreak": return customDurations.longBreak * 60;
+            default: return 25 * 60;
+        }
+    }
+    
+    // Refresh timer display & ring based on currentSeconds and activeMode total
+    function updateDisplayAndRing() {
+        const mins = Math.floor(currentSeconds / 60);
+        const secs = currentSeconds % 60;
+        timerDisplayEl.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        let totalDuration = getDurationSeconds(activeMode);
+        let percent = (currentSeconds / totalDuration) * 100;
+        percent = Math.min(100, Math.max(0, percent));
+        const angle = (percent / 100) * 360;
+        progressRingDiv.style.background = `conic-gradient(#3cc5ff ${angle}deg, #1f3e4a ${angle}deg)`;
+        ringPercentSpan.innerText = `${Math.floor(percent)}%`;
+        
+        // dynamic message
+        if (activeMode === 'pomodoro') {
+            if (percent > 70) sessionMessageEl.innerText = "🔥 Deep focus zone";
+            else if (percent > 30) sessionMessageEl.innerText = "📘 Stay concentrated";
+            else sessionMessageEl.innerText = "⚡ Almost done! Push forward";
+        } else if (activeMode === 'shortBreak') {
+            sessionMessageEl.innerText = "🌱 Breathe & stretch, relax";
+        } else {
+            sessionMessageEl.innerText = "🌊 Long break — recharge completely";
+        }
+    }
+    
+    // Play alarm sound with current selection
+    function playAlarmSound() {
+        if (!alarmAudio) {
+            alarmAudio = new Audio();
+            alarmAudio.volume = currentVolume;
+        }
+        let soundSrc = "";
+        switch(currentAlarmType) {
+            case "bell":
+                soundSrc = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+                break;
+            case "zen":
+                soundSrc = "https://assets.mixkit.co/active_storage/sfx/2124/2124-preview.mp3";
+                break;
+            case "digital":
+                soundSrc = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
+                break;
+            case "nature":
+                soundSrc = "https://assets.mixkit.co/active_storage/sfx/1250/1250-preview.mp3";
+                break;
+            default: soundSrc = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+        }
+        alarmAudio.src = soundSrc;
+        alarmAudio.volume = currentVolume;
+        alarmAudio.play().catch(e => console.log("Audio interaction needed"));
+        
+        // aesthetic pulse
+        const container = document.querySelector(".timer-container");
+        if(container) {
+            container.style.transform = "scale(1.01)";
+            setTimeout(() => { if(container) container.style.transform = ""; }, 150);
+        }
+    }
+    
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        isRunning = false;
+        startPauseBtn.innerHTML = "▶ START";
+    }
+    
+    // Apply current mode's custom duration to currentSeconds without resetting if needed
+    function refreshCurrentSecondsToMode() {
+        currentSeconds = getDurationSeconds(activeMode);
+        updateDisplayAndRing();
+    }
+    
+    // Set mode and update timer accordingly (preserve if needed)
+    function setMode(mode, keepRunningState = false) {
+        if (!keepRunningState && isRunning) {
+            stopTimer();
+        }
+        activeMode = mode;
+        modeBtns.forEach(btn => {
+            if (btn.getAttribute("data-mode") === mode) btn.classList.add("active");
+            else btn.classList.remove("active");
+        });
+        // Set seconds to the custom duration of this mode
+        currentSeconds = getDurationSeconds(activeMode);
+        updateDisplayAndRing();
+        if (!isRunning) {
+            startPauseBtn.innerHTML = "▶ START";
+        } else {
+            // if running, keep running but with new duration? we reset timer to avoid confusion
+            // Better to reset and stop when switching mode manually
+            if (!keepRunningState) {
+                // already stopped
+            }
+        }
+        if (activeMode === "pomodoro") sessionMessageEl.innerText = "🍅 Pomodoro · focus time";
+        else if (activeMode === "shortBreak") sessionMessageEl.innerText = "🫖 Short break · relax";
+        else sessionMessageEl.innerText = "🌿 Long break · refresh energy";
+        updateCycleText();
+    }
+    
+    // Timer completion logic
+    function handleTimerComplete() {
+        playAlarmSound();
+        if (activeMode === "pomodoro") {
+            pomodoroCount++;
+            updateCycleText();
+            // after pomodoro: decide next mode based on pomodoroCount (every 4 => long break, else short)
+            if (pomodoroCount % 4 === 0) {
+                setMode("longBreak");
+                sessionMessageEl.innerText = "✨ Amazing! Long break activated ✨";
+            } else {
+                setMode("shortBreak");
+                sessionMessageEl.innerText = "Nice! Take a short break 🧘";
+            }
+        } 
+        else if (activeMode === "shortBreak" || activeMode === "longBreak") {
+            setMode("pomodoro");
+            sessionMessageEl.innerText = "Break over! Back to focus 🍅";
+        }
+        stopTimer();
+        updateDisplayAndRing();
+    }
+    
+    function tick() {
+        if (currentSeconds <= 0) {
+            stopTimer();
+            handleTimerComplete();
+        } else {
+            currentSeconds--;
+            updateDisplayAndRing();
+        }
+    }
+    
+    function startTimer() {
+        if (timerInterval) return;
+        timerInterval = setInterval(tick, 1000);
+        isRunning = true;
+        startPauseBtn.innerHTML = "⏸ PAUSE";
+    }
+    
+    function pauseTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        isRunning = false;
+        startPauseBtn.innerHTML = "▶ START";
+    }
+    
+    function resetTimer() {
+        if (isRunning) pauseTimer();
+        currentSeconds = getDurationSeconds(activeMode);
+        updateDisplayAndRing();
+        startPauseBtn.innerHTML = "▶ START";
+    }
+    
+    function updateCycleText() {
+        cycleInfoSpan.innerText = `🍅 Pomodoros completed: ${pomodoroCount}  |  ✨ flow state`;
+    }
+    
+    // --- Functions to adjust durations ---
+    function adjustDuration(mode, delta) {
+        let newVal = customDurations[mode] + delta;
+        if (newVal < 1) newVal = 1;
+        if (newVal > 99) newVal = 99;
+        customDurations[mode] = newVal;
+        updateCustomUI();
+        
+        // If the currently active mode is the one being adjusted, and timer is not running -> update currentSeconds
+        if (activeMode === mode && !isRunning) {
+            currentSeconds = getDurationSeconds(activeMode);
+            updateDisplayAndRing();
+        } else if (activeMode === mode && isRunning) {
+            // Optional: we don't disturb running timer, but we could show a subtle warning? No, better to keep existing progress but ring total changes.
+            // Update ring percent reference based on new total duration (but keep currentSeconds same)
+            updateDisplayAndRing(); // refresh ring percentage only (currentSeconds unchanged)
+        } else {
+            // just update the ring for current mode anyway? not needed but safe
+            if (!isRunning && activeMode !== mode) {
+                // nothing, but keep.
+            }
+        }
+        // additionally if timer is not running on the same mode, refresh
+        if (!isRunning && activeMode === mode) {
+            // already updated.
+        }
+    }
+    
+    // reset all durations to classic defaults
+    function resetDurationsToDefault() {
+        customDurations = {
+            pomodoro: 25,
+            shortBreak: 5,
+            longBreak: 15
+        };
+        updateCustomUI();
+        if (!isRunning) {
+            currentSeconds = getDurationSeconds(activeMode);
+            updateDisplayAndRing();
+        } else {
+            // if running, keep current seconds but update total duration ring
+            updateDisplayAndRing();
+        }
+    }
+    
+    // ----- Event listeners for custom controls -----
+    document.getElementById("incFocus").addEventListener("click", () => adjustDuration("pomodoro", 1));
+    document.getElementById("decFocus").addEventListener("click", () => adjustDuration("pomodoro", -1));
+    document.getElementById("incShort").addEventListener("click", () => adjustDuration("shortBreak", 1));
+    document.getElementById("decShort").addEventListener("click", () => adjustDuration("shortBreak", -1));
+    document.getElementById("incLong").addEventListener("click", () => adjustDuration("longBreak", 1));
+    document.getElementById("decLong").addEventListener("click", () => adjustDuration("longBreak", -1));
+    document.getElementById("resetDurationsBtn").addEventListener("click", resetDurationsToDefault);
+    
+    // Mode switching
+    modeBtns.forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const mode = btn.getAttribute("data-mode");
+            if (mode === activeMode && !isRunning) return;
+            if (isRunning) pauseTimer();
+            setMode(mode);
+        });
+    });
+    
+    startPauseBtn.addEventListener("click", () => {
+        if (isRunning) pauseTimer();
+        else startTimer();
+    });
+    
+    resetBtn.addEventListener("click", resetTimer);
+    
+    // Sound select & volume
+    const soundSelect = document.getElementById("alarmSoundSelect");
+    soundSelect.addEventListener("change", (e) => { currentAlarmType = e.target.value; });
+    const volumeSlider = document.getElementById("volumeSlider");
+    volumeSlider.addEventListener("input", (e) => {
+        currentVolume = parseInt(e.target.value) / 100;
+        if (alarmAudio) alarmAudio.volume = currentVolume;
+    });
+    const testBtn = document.getElementById("testAlarmBtn");
+    testBtn.addEventListener("click", () => playAlarmSound());
+    
+    // Initialize UI
+    updateCustomUI();
+    setMode("pomodoro");
+    
+    // Audio priming on first interaction
+    function primeAudio() {
+        const dummy = new Audio();
+        dummy.volume = 0;
+        dummy.src = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+        dummy.play().then(() => { dummy.pause(); dummy.currentTime = 0; }).catch(() => {});
+        document.removeEventListener("click", primeAudio);
+        document.removeEventListener("touchstart", primeAudio);
+    }
+    document.addEventListener("click", primeAudio);
+    document.addEventListener("touchstart", primeAudio);
+    
+    // Additional: if custom durations change while timer is running, ring updates.
+    window.addEventListener("load", () => {
+        updateDisplayAndRing();
+    });
+</script>
+</body>
+</html>
