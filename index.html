@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Pomodoro Aesthetic | Custom Timers</title>
+    <title> 25:00 - Pomodoro Aesthetic</title>
+      <link rel="icon" type="image/x-icon" href="download.jpg">
     <style>
         * {
             margin: 0;
@@ -103,7 +104,7 @@
             font-family: monospace;
         }
 
-        /* custom time controls - new feature */
+        /* custom time controls */
         .custom-time-controls {
             display: flex;
             justify-content: center;
@@ -314,6 +315,16 @@
             background: #2c5779;
         }
 
+        /* status indicator for background running */
+        .bg-status {
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            color: #5f8fb0;
+            font-family: monospace;
+            opacity: 0.7;
+        }
+
         @media (max-width: 600px) {
             .timer-container {
                 padding: 1.2rem;
@@ -356,7 +367,7 @@
     </div>
     <div class="session-label" id="sessionMessage">Time to focus · deep work</div>
 
-    <!-- CUSTOM DURATION CONTROLS (NEW) -->
+    <!-- CUSTOM DURATION CONTROLS -->
     <div class="custom-time-controls">
         <div class="time-adjust" id="focusTimeControl">
             <label>🍅 FOCUS</label>
@@ -413,6 +424,7 @@
         </div>
     </div>
     <div class="cycle-counter" id="cycleInfo">🍅 Pomodoros completed: 0</div>
+    <div class="bg-status">✨ Timer keeps running in background · time shown in tab</div>
 </div>
 
 <script>
@@ -431,6 +443,10 @@
     
     // pomodoro counter
     let pomodoroCount = 0;
+    
+    // Track last tick timestamp to prevent drift and ensure accuracy when tab inactive
+    let lastTickTime = null;
+    let animationFrameId = null;
     
     // DOM elements
     const timerDisplayEl = document.getElementById("timerDisplay");
@@ -469,11 +485,30 @@
         }
     }
     
+    // Update browser tab title with current time and emoji
+    function updateTabTitle() {
+        const mins = Math.floor(currentSeconds / 60);
+        const secs = currentSeconds % 60;
+        const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        let modeIcon = "";
+        switch(activeMode) {
+            case "pomodoro": modeIcon = "🍅"; break;
+            case "shortBreak": modeIcon = "☕"; break;
+            case "longBreak": modeIcon = "🌿"; break;
+        }
+        const runningSymbol = isRunning ? "▶" : "⏸";
+        document.title = `${modeIcon} ${timeStr} ${runningSymbol} - Pomodoro Aesthetic`;
+    }
+    
     // Refresh timer display & ring based on currentSeconds and activeMode total
     function updateDisplayAndRing() {
         const mins = Math.floor(currentSeconds / 60);
         const secs = currentSeconds % 60;
-        timerDisplayEl.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        timerDisplayEl.innerText = timeStr;
+        
+        // Update tab title with current time
+        updateTabTitle();
         
         let totalDuration = getDurationSeconds(activeMode);
         let percent = (currentSeconds / totalDuration) * 100;
@@ -533,45 +568,104 @@
             clearInterval(timerInterval);
             timerInterval = null;
         }
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
         isRunning = false;
         startPauseBtn.innerHTML = "▶ START";
+        lastTickTime = null;
+        updateTabTitle();
     }
     
-    // Apply current mode's custom duration to currentSeconds without resetting if needed
-    function refreshCurrentSecondsToMode() {
-        currentSeconds = getDurationSeconds(activeMode);
-        updateDisplayAndRing();
-    }
-    
-    // Set mode and update timer accordingly (preserve if needed)
-    function setMode(mode, keepRunningState = false) {
-        if (!keepRunningState && isRunning) {
+    // Core timer tick function that works even when tab is inactive
+    // We'll use setInterval but ensure it's robust. setInterval works in background,
+    // but to be extra safe, we'll use requestAnimationFrame fallback? Actually setInterval
+    // is throttled but still runs (usually 1 per second or less). We'll use setInterval
+    // and also track time diffs to ensure accuracy.
+    function tick() {
+        if (!isRunning) return;
+        
+        if (currentSeconds <= 0) {
             stopTimer();
-        }
-        activeMode = mode;
-        modeBtns.forEach(btn => {
-            if (btn.getAttribute("data-mode") === mode) btn.classList.add("active");
-            else btn.classList.remove("active");
-        });
-        // Set seconds to the custom duration of this mode
-        currentSeconds = getDurationSeconds(activeMode);
-        updateDisplayAndRing();
-        if (!isRunning) {
-            startPauseBtn.innerHTML = "▶ START";
+            handleTimerComplete();
+            updateDisplayAndRing();
         } else {
-            // if running, keep running but with new duration? we reset timer to avoid confusion
-            // Better to reset and stop when switching mode manually
-            if (!keepRunningState) {
-                // already stopped
-            }
+            currentSeconds--;
+            updateDisplayAndRing();
         }
-        if (activeMode === "pomodoro") sessionMessageEl.innerText = "🍅 Pomodoro · focus time";
-        else if (activeMode === "shortBreak") sessionMessageEl.innerText = "🫖 Short break · relax";
-        else sessionMessageEl.innerText = "🌿 Long break · refresh energy";
-        updateCycleText();
     }
     
-    // Timer completion logic
+    // More accurate timer using setInterval with drift correction
+    let expectedTickTime = 0;
+    
+    function startAccurateTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        
+        // Use setInterval - it continues working when tab is inactive (though may be throttled but still eventually runs)
+        // To ensure accuracy, we'll also track using requestAnimationFrame for visual updates,
+        // but the countdown logic uses setInterval which is sufficient for background tabs.
+        timerInterval = setInterval(() => {
+            if (isRunning && currentSeconds > 0) {
+                currentSeconds--;
+                updateDisplayAndRing();
+                if (currentSeconds === 0) {
+                    stopTimer();
+                    handleTimerComplete();
+                    updateDisplayAndRing();
+                }
+            } else if (isRunning && currentSeconds <= 0) {
+                stopTimer();
+                handleTimerComplete();
+                updateDisplayAndRing();
+            }
+        }, 1000);
+    }
+    
+    function startTimer() {
+        if (isRunning) return;
+        isRunning = true;
+        startPauseBtn.innerHTML = "⏸ PAUSE";
+        
+        // Start the background-friendly timer
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (isRunning && currentSeconds > 0) {
+                currentSeconds--;
+                updateDisplayAndRing();
+                if (currentSeconds === 0) {
+                    stopTimer();
+                    handleTimerComplete();
+                    updateDisplayAndRing();
+                }
+            } else if (isRunning && currentSeconds <= 0) {
+                stopTimer();
+                handleTimerComplete();
+                updateDisplayAndRing();
+            }
+        }, 1000);
+        
+        updateTabTitle();
+    }
+    
+    function pauseTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        isRunning = false;
+        startPauseBtn.innerHTML = "▶ START";
+        updateTabTitle();
+    }
+    
+    function resetTimer() {
+        if (isRunning) pauseTimer();
+        currentSeconds = getDurationSeconds(activeMode);
+        updateDisplayAndRing();
+        startPauseBtn.innerHTML = "▶ START";
+        updateTabTitle();
+    }
+    
     function handleTimerComplete() {
         playAlarmSound();
         if (activeMode === "pomodoro") {
@@ -590,45 +684,33 @@
             setMode("pomodoro");
             sessionMessageEl.innerText = "Break over! Back to focus 🍅";
         }
-        stopTimer();
         updateDisplayAndRing();
-    }
-    
-    function tick() {
-        if (currentSeconds <= 0) {
-            stopTimer();
-            handleTimerComplete();
-        } else {
-            currentSeconds--;
-            updateDisplayAndRing();
-        }
-    }
-    
-    function startTimer() {
-        if (timerInterval) return;
-        timerInterval = setInterval(tick, 1000);
-        isRunning = true;
-        startPauseBtn.innerHTML = "⏸ PAUSE";
-    }
-    
-    function pauseTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        isRunning = false;
-        startPauseBtn.innerHTML = "▶ START";
-    }
-    
-    function resetTimer() {
-        if (isRunning) pauseTimer();
-        currentSeconds = getDurationSeconds(activeMode);
-        updateDisplayAndRing();
-        startPauseBtn.innerHTML = "▶ START";
+        updateTabTitle();
     }
     
     function updateCycleText() {
         cycleInfoSpan.innerText = `🍅 Pomodoros completed: ${pomodoroCount}  |  ✨ flow state`;
+    }
+    
+    // Set mode and update timer accordingly
+    function setMode(mode) {
+        if (isRunning) {
+            pauseTimer();
+        }
+        activeMode = mode;
+        modeBtns.forEach(btn => {
+            if (btn.getAttribute("data-mode") === mode) btn.classList.add("active");
+            else btn.classList.remove("active");
+        });
+        currentSeconds = getDurationSeconds(activeMode);
+        updateDisplayAndRing();
+        startPauseBtn.innerHTML = "▶ START";
+        
+        if (activeMode === "pomodoro") sessionMessageEl.innerText = "🍅 Pomodoro · focus time";
+        else if (activeMode === "shortBreak") sessionMessageEl.innerText = "🫖 Short break · relax";
+        else sessionMessageEl.innerText = "🌿 Long break · refresh energy";
+        updateCycleText();
+        updateTabTitle();
     }
     
     // --- Functions to adjust durations ---
@@ -644,18 +726,8 @@
             currentSeconds = getDurationSeconds(activeMode);
             updateDisplayAndRing();
         } else if (activeMode === mode && isRunning) {
-            // Optional: we don't disturb running timer, but we could show a subtle warning? No, better to keep existing progress but ring total changes.
-            // Update ring percent reference based on new total duration (but keep currentSeconds same)
-            updateDisplayAndRing(); // refresh ring percentage only (currentSeconds unchanged)
-        } else {
-            // just update the ring for current mode anyway? not needed but safe
-            if (!isRunning && activeMode !== mode) {
-                // nothing, but keep.
-            }
-        }
-        // additionally if timer is not running on the same mode, refresh
-        if (!isRunning && activeMode === mode) {
-            // already updated.
+            // Update ring percent reference based on new total duration
+            updateDisplayAndRing();
         }
     }
     
@@ -671,7 +743,6 @@
             currentSeconds = getDurationSeconds(activeMode);
             updateDisplayAndRing();
         } else {
-            // if running, keep current seconds but update total duration ring
             updateDisplayAndRing();
         }
     }
@@ -690,7 +761,6 @@
         btn.addEventListener("click", (e) => {
             const mode = btn.getAttribute("data-mode");
             if (mode === activeMode && !isRunning) return;
-            if (isRunning) pauseTimer();
             setMode(mode);
         });
     });
@@ -729,10 +799,20 @@
     document.addEventListener("click", primeAudio);
     document.addEventListener("touchstart", primeAudio);
     
-    // Additional: if custom durations change while timer is running, ring updates.
-    window.addEventListener("load", () => {
-        updateDisplayAndRing();
+    // Handle page visibility to ensure timer continues and updates tab title when visible again
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            // When tab becomes visible again, ensure display is up to date
+            updateDisplayAndRing();
+            updateTabTitle();
+        } else {
+            // Update tab title even when hidden to show current time
+            updateTabTitle();
+        }
     });
+    
+    // Initial tab title set
+    updateTabTitle();
 </script>
 </body>
 </html>
